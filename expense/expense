@@ -1,0 +1,228 @@
+#! /usr/bin/env ruby
+
+require "pg"
+require "date"
+require "io/console"
+require "pry"
+
+class ExpenseData
+
+  def initialize
+    @connection = PG.connect(dbname: "rb185_lesson1_expenses")
+    setup_schema
+  end
+
+=begin
+  # LS Solution
+  def list_expenses
+    result = @connection.exec("SELECT * FROM expenses ORDER BY created_on ASC")
+    result.each do |tuple|
+      columns = [ tuple["id"].rjust(3),
+                  tuple["created_on"].rjust(10),
+                  tuple["amount"].rjust(12),
+                  tuple["memo"] ]
+
+      puts columns.join(" | ")
+    end
+  end
+=end
+
+  # Own solution
+  def list_expenses
+    all_infos = @connection.exec('
+                SELECT * FROM expenses
+                ORDER BY created_on
+              ')
+    display_number_of_rows(all_infos)
+    display_db_exec_results(all_infos, field_names: true)
+  end
+
+  def add_expense(amount, memo)
+    date = Date.today
+    sql = <<~SQL
+      INSERT INTO expenses (amount, memo, created_on)
+      VALUES ($1, $2, $3)
+    SQL
+    @connection.exec_params(sql, [amount, memo, date])
+  end
+
+  def search_expenses(query)
+  sql = <<~SQL
+    SELECT * FROM expenses
+    WHERE memo ILIKE $1
+  SQL
+  results = @connection.exec_params(sql, ["%#{query}%"])
+
+  display_number_of_rows(results)
+  display_db_exec_results(results)
+  end
+
+  def delete_expense(id)
+    row_to_delete_sql = <<~SQL
+      SELECT * FROM expenses
+      WHERE id = $1
+    SQL
+    row_to_delete_results = @connection.exec_params(row_to_delete_sql, [id])
+    if row_to_delete_results.ntuples == 0
+      puts "There is no expense with the id '#{id}'."
+    else
+      sql = <<~SQL
+        DELETE FROM expenses
+        WHERE id = $1
+      SQL
+      @connection.exec_params(sql, [id])
+
+      puts "The following expense has been deleted:"
+      display_db_exec_results(row_to_delete_results)
+    end
+  end
+
+  def delete_all_expenses
+    @connection.exec("DELETE FROM expenses")
+    puts "All expenses have been deleted."
+  end
+
+  private
+
+  # create the expense table if it doesn't exist
+  def setup_schema
+    sql_check_table = <<~SQL
+      SELECT COUNT(*)
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'expenses';
+    SQL
+
+    sql_check_table_results = @connection.exec(sql_check_table)
+
+    if sql_check_table_results[0]["count"] == 0
+      sql_create_table = <<~SQL
+        CREATE TABLE expenses (
+          id serial PRIMARY KEY,
+          amount decimal(6, 2) NOT NULL
+                               CONSTRAINT positive_amount
+                                          CHECK (amount >= 0.01),
+          memo text NOT NULL,
+          created_on date NOT NULL
+        );
+      SQL
+
+      @connection.exec(sql_create_table)
+    end
+  end
+
+  #returns an 3d array with each sub-array containing the values for the column. You can prepend the column (or field) names as an option to those sub-arrays
+  def db_column_values(db_results, field_names: false)
+    col_values = []
+
+    nb_of_columns = db_results.nfields
+    0.upto(nb_of_columns - 1) do |col_index|
+      current_column_values =
+        if field_names
+          [db_results.fields[col_index]] + db_results.column_values(col_index) #prepend the column name to the column values
+        else
+          db_results.column_values(col_index)
+        end
+      col_values << current_column_values
+    end
+
+    col_values
+  end
+
+  #Return an array with the formatted length (in integers) for each column
+  def db_column_lengths(db_results, field_names: false)
+    db_column_values(db_results, field_names: field_names).map do |single_column_values|
+      single_column_values.map(&:length).max
+    end
+  end
+
+  def display_db_exec_results(db_results, field_names: false)
+    formatted_results = []
+
+    formatted_col_lengths = db_column_lengths(db_results, field_names: field_names)
+
+    row_values =
+      if field_names
+        row_values = [db_results.fields] + db_results.values
+      else
+        db_results.values
+      end
+
+    row_values.each do |row|
+      formatted_row =
+        row.map.with_index {|value, index| value.rjust(formatted_col_lengths[index])}
+      formatted_results << formatted_row
+    end
+
+
+    delimiter = " | "
+    formatted_results.each { |row| puts row.join(delimiter) }
+
+    row_length = formatted_col_lengths.sum + (formatted_col_lengths.size - 1) * delimiter.size
+    puts "-" * row_length
+
+    amount_sum = db_results.field_values("amount").map(&:to_f).sum
+    amount_sum_str = format("%.2f", amount_sum.to_s)
+    amount_col_position = db_results.fields.index("amount")
+    puts amount_sum_str.rjust(formatted_col_lengths[0..amount_col_position].sum + 3 * amount_col_position)
+  end
+
+  def display_number_of_rows(db_results)
+    nb_of_rows = db_results.ntuples
+    message =
+      case nb_of_rows
+      when 0 then "There are no expenses."
+      when 1 then "There is 1 expense."
+      else "There are #{nb_of_rows} expenses."
+      end
+
+    puts message
+  end
+end
+
+class CLI
+  def initialize
+    @expense_data = ExpenseData.new
+  end
+
+  def run(args)
+    command = args.first
+    case command
+    when 'list' then @expense_data.list_expenses
+    when 'add'
+      amount = args[1]
+      memo = args[2]
+      abort "You must provide an amount and memo." unless amount && memo
+      @expense_data.add_expense(amount, memo)
+    when 'search'
+      query = args[1]
+      @expense_data.search_expenses(query)
+    when 'delete'
+      query = args[1]
+      @expense_data.delete_expense(query)
+    when 'clear'
+      puts "This will remove all expenses. Are you sure? (y/n)"
+      input = $stdin.getch
+
+      @expense_data.delete_all_expenses if input == 'y'
+    else display_help
+    end
+  end
+
+  def display_help
+    help = <<~DOCTYPE
+      An expense recording system
+
+      Commands:
+
+      add AMOUNT MEMO - record a new expense
+      clear - delete all expenses
+      list - list all expenses
+      delete NUMBER - remove expense with id NUMBER
+      search QUERY - list expenses with a matching memo field
+    DOCTYPE
+
+    puts help
+  end
+end
+
+CLI.new.run(ARGV)
