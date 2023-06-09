@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Budget</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="/stylesheets/budget.css" />
+  </head>
+  <body>
+
+    <% if session[:message] %> 
+      <p class="message"><%= session.delete(:message) %></p>
+    <% end %>
+
+    <%= yield %>
+  </body>
+</html>

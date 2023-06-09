@@ -1,0 +1,23 @@
+<form action="/<%= @key %>/update" method="POST">
+  <p>Update <%= @type %>:</p>
+  <p> 
+    <select required name="category">
+      <option value="" disabled>Category</option>
+      <% @category_options.each do |category| %>
+        <% category_value = snake_case(category) %>
+        <option value="<%= category_value %>" <%= "selected" if @category == category_value %>><%= category %></option>
+      <% end %>
+
+    </select>
+  </p>
+  <p>
+    <label>Amount:&nbsp;</label>
+    <input required type="number" name="amount" min="0" value="<%= @amount %>">
+  </p>
+  <p>
+    <label for="date">Date:&nbsp;</label>
+    <input required type="date" name="date" value="<%= @date %>">
+  </p>
+  <input type="hidden" name="type" value="<%= @type %>">
+  <button type="submit">Update <%= @type %></button>
+</form>

@@ -1,0 +1,7 @@
+<% revenue_month = total_revenue_current_month %>
+<% revenue_year = total_revenue_current_year %>
+
+<p class=<%= revenue_month < 0 ? 'expense' : 'revenue' %>>Total (current month): <%= format_amount(revenue_month) %></p>
+<p class=<%= revenue_year < 0 ? 'expense' : 'revenue' %>>Total (current year): <%= format_amount(revenue_year) %></p>
+<p><a href="/new_entry?type=expense">Add an expense</a> <a href="/new_entry?type=revenue">Add a revenue</a></p>
+<p><a href="/log">See entry details</a></p> 

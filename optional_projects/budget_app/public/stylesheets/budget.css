@@ -1,0 +1,17 @@
+.message {
+  white-space: pre-line;
+  padding: 10px;
+  background-color: #FFFF99;
+}
+
+.inline {
+  display: inline;
+}
+
+.expense {
+  color: red;
+}
+
+.revenue {
+  color: green;
+}

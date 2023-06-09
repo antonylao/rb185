@@ -1,0 +1,23 @@
+<table>
+  <tr>
+    <th>Date</th>
+    <th>Type</th>
+    <th>Category</th>
+    <th>Amount</th>
+  </tr>
+  
+  <% sorted_datafile.each do |entry| %>
+    <tr class=<%= entry["type"] %>>
+      <td><%= entry["date"] %></td>
+      <td><%= entry["type"] %></td>
+      <td><%= entry["category"] %></td>
+      <td><%= entry["type"] == "revenue" ? "+" : "-" %>$<%= entry["amount"] %></td>
+      <td>
+        <a href="/<%= entry[:key] %>/edit">Edit</a>
+        <form class="inline" action="/<%= entry[:key] %>/delete" method="POST">
+          <button type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  <% end %>
+</table>
