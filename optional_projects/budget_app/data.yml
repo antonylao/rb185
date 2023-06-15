@@ -64,3 +64,13 @@
   type: expense
   category: food
   amount: 15
+16:
+  date: 2023-06-10
+  type: expense
+  category: health
+  amount: 10
+17:
+  date: 2023-06-11
+  type: revenue
+  category: other_revenues
+  amount: 22

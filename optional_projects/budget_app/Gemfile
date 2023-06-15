@@ -10,6 +10,7 @@ gem 'pry'
 
 gem 'sysrandom'
 gem 'yaml'
+gem "pg"
 
 group :production do
   gem "puma"

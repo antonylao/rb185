@@ -1,12 +1,13 @@
 require "sinatra"
-require "sinatra/reloader" if development?
 require "sinatra/content_for"
 require "tilt/erubis"
 
 require 'sysrandom/securerandom'
 require 'yaml'
 
-require_relative "datafile_persistence.rb"
+require 'pry'
+
+require_relative "database_persistence.rb"
 
 REVENUE_CATEGORIES = ["Main Income", "Second Income", "Other Revenues"]
 EXPENSE_CATEGORIES = ["Food", "Health", "Bills", "Debt", "Other Expenses"]
@@ -15,6 +16,12 @@ configure do
   enable :sessions
   set :session_secret, ENV.fetch('SESSION_SECRET') { SecureRandom.hex(64) }
 end
+
+configure(:development) do
+  require "sinatra/reloader"
+  also_reload "database_persistence.rb"
+end
+
 # rubocop: disable Metrics/BlockLength
 helpers do
   # rubocop: enable Metrics/BlockLength
@@ -34,7 +41,7 @@ helpers do
   # Calculate total revenue of year or month
   # rubocop: disable Metrics/MethodLength
   def total_revenue(year:, month: nil)
-    return 0 unless @storage.load_datafile
+    return 0 unless @storage.load_database
 
     filtered_entries = find_data_entries(month: month, year: year)
 
@@ -63,7 +70,7 @@ helpers do
   end
 
   def find_data_entries(year:, month: nil)
-    data_yml = @storage.load_datafile
+    data_yml = @storage.load_database
 
     # rubocop: disable Layout/BlockAlignment
     data_filtered = data_yml.select do |_, entry|
@@ -77,7 +84,7 @@ helpers do
     end
   end
 
-  def date_match?(date, year:, month: nil)
+  def date_match?(date, year:, month: nil)  
     year = year.to_i
     return false unless date.year == year
 
@@ -92,7 +99,7 @@ helpers do
   # Returns an array with entries sorted from more newest to oldest date-wise.
   # If dates are equal, entries added last are considered older
   def sorted_datafile
-    datafile = @storage.load_datafile
+    datafile = @storage.load_database
     # rubocop: disable Layout/BlockAlignment
     datafile_arr = datafile.map do |key, hash|
                      hash[:key] = key
@@ -119,7 +126,7 @@ helpers do
 end
 
 before do
-  @storage = DatafilePersistence.new
+  @storage = DatabasePersistence.new(logger)
 end
 
 after do
@@ -145,7 +152,7 @@ get "/new_entry" do
 end
 
 get "/log" do
-  if @storage.load_datafile.nil?
+  if @storage.load_database.nil?
     session[:message] = "No entry has been added yet."
     redirect "/"
   end
@@ -183,7 +190,7 @@ get "/:data_key/edit" do
                       else
                         REVENUE_CATEGORIES
                       end
-
+  
   erb :edit
 end
 
